@@ -1,7 +1,4 @@
-%\documentclass[portrait,a0,posterdraft]{a0poster}
 \documentclass[portrait,a0,final]{a0poster}
-% For documentation, see
-% ftp://ftp.funet.fi/pub/TeX/CTAN/macros/latex/contrib/a0poster/a0_eng.pdf
 
 \usepackage{epsf,pstricks}
 \usepackage[utf8]{inputenc}
@@ -20,12 +17,7 @@
 \hypersetup{pdfstartview={XYZ null null 1}}
 \usepackage{authblk}
 \usepackage{nopageno}
-
-
-% Fonts
-%\renewcommand{\familydefault}{\sfdefault}
 \renewcommand{\familydefault}{\rmdefault}
-%\usepackage{times}
 
 % For tikz
 \usepackage{tikz}
@@ -33,9 +25,10 @@
 \usepackage{amsmath,amssymb}
 \usetikzlibrary{positioning}
 
-\title{\Huge Open Data Analytics and Reproducible Research}
+\title{\Huge MetaboDiff: an R package for differential metabolomic analysis.}
 \date{}
-\author{{Markus Kainu, Joona Lehtomäki, Juuso Parkkinen, Juha Yrjölä, Måns Magnusson, Mikko Tolonen, Niko Ilomäki, Leo Lahti}\\ \Large Contact: \textcolor{blue}{http://ropengov.github.io}}
+\author{{\Large Andreas Mock and Christel Herold-Mende}\\ \normalsize Division of Experimental Neurosurgery, Department of Neurosugery, Heidelberg University Hospital}
+
 
 \begin{document}
 \pagestyle{empty}
@@ -58,236 +51,293 @@
 \vspace{0cm}
 
 
-\begin{tikzpicture}[]
+\begin{tikzpicture}[every node/.style = {anchor=south}]]
+
 
 \node [myboxwhite] (intro){%
     \begin{minipage}{0.45\textwidth}
 
-{\bf Open data analytics} The recent explosion in open data
-availability has created novel opportunities for research. Efficient
-data analytical tools are crucial for taking full advantage of these
-new information resources. Custom software libraries are now rapidly
-emerging and have a huge potential to contribute to transforming
-computational social sciences, digital humanities, and related fields
-(Lazer et al. 2009).
+{\bf Introduction} Comparative metabolomics comes of age by an increasing list of commercial vendors (i.e. Metabolon\textregistered) offering reproducible high-quality metabolomic data for translational researchers outside the mass spectrometry field. This R packages aims to provide a low-level entry to differential metabolomic analysis by starting off with the table of relative metabolite quantifications provided by commercial vendors.
 
     \end{minipage}
 
 };
 
 
-\node [myboxblue, below of=intro, node distance=23cm, yshift=0cm, xshift=0cm] (ecosystem){%
+\node [myboxwhite,  below=2.5cm of intro] (installation){%
     \begin{minipage}{0.45\textwidth}
 
-{\bf Advantages of the open development model} Efficient data analysis
-relies on custom workflows that are best developed jointly by the user
-community, as already demonstrated in bioinformatics (Bioconductor),
-particle physics, and other fields (rOpenSci). Similar communities are
-now shaping up in social sciences and humanities. The open development model
-has many benefits (Ioannidis 2014, Morin et al. 2012):
+{\bf Installation of \emph{R} package}
 
+<<eval=TRUE, echo=TRUE, message=FALSE>>=
+library(devtools)
+install_github("andreasmock/MetaboDiff")
+@
+
+The package vignette can be found on Github at \\  \textcolor{blue}{\url{https://github.com/andreasmock/MetaboDiff}}.
+
+    \end{minipage}
+
+};
+
+\node [myboxblue, below=2.5cm of installation] (example){%
+    \begin{minipage}{0.45\textwidth}
+
+{\bf Example data} The example data is derived from a study by Priolo and colleagues in which they used the service of the Metabolon company to compare the tissue metabolome of 40 prostate cancers with 16 normal prostate specimens.
+  \end{minipage}
+
+};
+
+\node [myboxwhite, below=2.5cm of example] (mae){%
+    \begin{minipage}{0.45\textwidth}
+
+{\bf Data representation} The metabolomic data within \verb|MetaboDiff| is stored as a \verb|MultiAssayExperiment| class (Sig, 2015). This framework enables the coordinated representation of multiple experiments on partially overlapping samples with associated metadata and integrated subsetting across experiments. In the context of metabolomic data analysis, multiple assays are needed to store raw data and imputed data. \\
+\\
+The core components of the \verb|MultiAssayExperiment| class are:
 
 \begin{itemize}
 
-\item \textbf{Efficiency}: Standard tasks can be automated, leaving
-researchers more time to focus on their specific research tasks.
+\item \verb|ExperimentList| - a slot of class ExperimentList containing data for each experimental assay. Within the ExperimentList slot, the metabolomic data is stored as a 
+SummarizedExperiment object consisting of:
+    \subitem \verb|assay| - a matrix containing the relative measurements. 
+    \subitem \verb|rowData| - a dataframe containing the metabolite annotation.
+\item \verb|colData| - a slot of class data frame describing the sample metadata available across all experiments.
+\item \verb|sampleMap| - a slot of class data frame relating clinical data to experimental assay.
 
-\item \textbf{Transparency}: Full details of the analysis from raw
-data to the final results are made available, often before formal
-publication.
+\end{itemize}
 
-\item \textbf{Reproducibility}: Reproducible analyses can be modified
-easily and repeated exactly without human intervention.
+    \end{minipage}
 
-\item \textbf{Standardization}: A developer community can pool time
-and skills, develop standards in data analysis and ensure
-compatibility.
+};
 
-\item \textbf{Open source}: Open licensing guarantees that the tools
-are freely available and can be further expanded. We use GitHub for
-shared version control and open development.
+\node [myboxwhite,  below=2.5cm of mae] (imputation){%
+    \begin{minipage}{0.45\textwidth}
 
-  \end{itemize}
+{\bf Imputation of missing values} In contrast to microarrays, missing values are common in quantitative metabolomic datasets. The following heatmap shows the missing values across the example data. K-nearest neighbor imputation was used to minimize effects on the normality and variance of the data (Armitage et al., 2015).
+
+<<eval=TRUE,echo=FALSE,message=FALSE,warning=FALSE>>=
+library(devtools)
+install_github("andreasmock/MetaboDiff")
+library("devtools")
+library("gdata")
+library("MultiAssayExperiment")
+library("SummarizedExperiment")
+library("MetaboDiff")
+library("tidyverse")
+library("ggfortify")
+library("ComplexHeatmap")
+library("impute")
+library("vsn")
+require("cowplot")
+library("ggbiplot")
+@
+
+
+<<eval=TRUE,echo=FALSE,message=FALSE,warning=FALSE,cache=TRUE>>=
+data = as.matrix(read.xls("http://cancerres.aacrjournals.org/highwire/filestream/290852/field_highwire_adjunct_files/4/131853_1_supp_2658512_nbpsn6.xlsx",sheet=5,na.strings = ""))
+
+assay = apply(data[3:nrow(data),8:ncol(data)],2,as.numeric)
+colnames(assay) = paste0(rep("sample",ncol(assay)),1:ncol(assay))
+rownames(assay) = paste0(rep("met",nrow(assay)),1:nrow(assay))
+
+
+colData = data.frame(id = colnames(t(data[1,8:ncol(data)])),
+                     tumor_normal = as.vector(t(data[1,8:ncol(data)])),
+                   row.names=paste0(rep("pat",ncol(assay)),1:ncol(assay)))
+
+
+rowData = as.data.frame(data[3:nrow(data),1:7])
+colnames(rowData) = data[2,1:7]
+colnames(rowData)[7] = "HMDB_ID"
+rownames(rowData) = paste0(rep("met",nrow(assay)),1:nrow(assay))
+
+
+rowData = get_SMPDBanno(rowData,
+                        column_kegg_id=6,
+                        column_hmdb_id=7,
+                        column_chebi_id=NA)
+
+se = SummarizedExperiment(assays=assay,
+                           rowData=rowData)
+experiment_list = list(raw=se)
+
+
+sampleMap = data.frame(primary=rownames(colData),
+                 colname=colnames(se))
+sampleMap_list = listToMap(list(raw=sampleMap))
+
+met = MultiAssayExperiment(experiments = experiment_list,
+                           colData = colData,
+                           sampleMap = sampleMap_list)
+
+met = knn_impute(met,cutoff=0.4)
+
+met = normalize_met(met)
+@
+
+\vspace{1cm}
+
+<<message=FALSE,warning=FALSE,fig.width=13,fig.height=5,echo=FALSE,fig.align="center">>=
+na_heatmap(met,
+           sample_label=colData(met)$tumor_normal,
+           label_colors=c("darkseagreen","dodgerblue"))
+@
+
+    \end{minipage}
+
+};
+
+\node [myboxblue, below=2.5cm of imputation] (about){%
+    \begin{minipage}{0.45\textwidth}
+
+{\bf About this poster} This poster was created using a R markdown template of rOpenGov (\textcolor{blue}{\url{http://ropengov.github.io}}). It is fully reproducible; the full source code of this poster is available at \textcolor{blue}{\url{https://github.com/andreasmock/MetaboDiff_poster}}.
+  \end{minipage}
+};
+
+\node [myboxwhite, right=3cm of intro, yshift=-6.9cm] (norm){%
+    \begin{minipage}{0.45\textwidth}
+
+{\bf Normalization} Variance stabilizing normalization (vsn) was originally developed for microarrys to ensure that the variance remains nearly constant over the whole intensity spectrum (Huber et al., 2002). It could be shown that vsn normalization performs also very well for metabolomic data (Kohl et al., 2012). The following plots illustrate the variance stabilization before (A) and after normalization (B) in the example data:
+
+\vspace{1cm}
+
+<<message=FALSE,warning=FALSE,fig.width=11,fig.height=5,echo=FALSE,fig.align="center">>=
+df1 = data.frame(mean=apply(assays(met)[["norm"]],1,mean,na.rm=TRUE),
+                sd=apply(assays(met)[["norm"]],1,sd,na.rm=TRUE))
+plot1 = ggplot(df1, aes(x=mean, y=sd)) + geom_point() + geom_smooth(method=lm)  
+
+df2 = data.frame(mean=apply(log2(assays(met)[["raw"]]),1,mean,na.rm=TRUE),
+                sd=apply(log2(assays(met)[["raw"]]),1,sd,na.rm=TRUE))
+plot2 = ggplot(df2, aes(x=mean, y=sd)) + geom_point() + geom_smooth(method=lm)  
+
+plot_grid(plot2, plot1, align='h', labels=c('A', 'B'),label_size = 24)
+@
+
+
+    \end{minipage}
+
+};
+
+\node [myboxwhite, below=2.5cm of norm] (unsup){%
+    \begin{minipage}{0.45\textwidth}
+
+{\bf Unsupervised analysis} A number of unsupervised analysis and visualizations are at offer within \verb|MetaboDiff| including correlation heatmaps and PCA plots: 
+
+\vspace{1.5cm}
+
+<<message=FALSE,warning=FALSE,fig.width=11,fig.height=5,echo=FALSE,fig.align="center">>=
+library(circlize)
+library(RColorBrewer)
+
+data = t(assays(met)[["norm_imputed"]])
+data.pca=prcomp(data,scale. = TRUE)
+plot1 = ggbiplot(data.pca,groups=colData(met)$tumor_normal,ellipse=TRUE,var.axes = FALSE) + 
+scale_color_manual(name="grouping", values=c("darkseagreen","dodgerblue")) + xlab("PC1 (18.9% explained var.)") + ylab("PC2 (10.2% explained var.)")
+
+
+mat = cor(t(assays(met)[["norm_imputed"]]))
+hc = hclust(as.dist(1 - mat))
+mat = mat[hc$order, hc$order]
+mat[lower.tri(mat)] = 0
+
+col_fun = colorRamp2(c(-0.5, 0, 0.5), c("#67A9CF", "white", "#EF8A62"), transparency = 0)
+group_color = structure(brewer.pal(9,"Set3"), names = levels(rowData(met[["norm_imputed"]])$SUPER_PATHWAY))
+
+col_anno = columnAnnotation(df=data.frame(pathway=rowData(met[["norm_imputed"]])$SUPER_PATHWAY),col=list(pathway=group_color),
+                            show_legend = FALSE)
+
+row_anno = rowAnnotation(df=data.frame(pathway=rowData(met[["norm_imputed"]])$SUPER_PATHWAY),col=list(pathway=group_color))
+
+Heatmap(mat,cluster_rows = FALSE,
+        cluster_columns=FALSE, 
+        show_column_names = FALSE,
+        show_row_names = FALSE,
+        name="PCC", 
+        top_annotation = col_anno,
+        show_row_dend = FALSE,
+        col=col_fun) + row_anno
+
+vp.BottomLeft <- viewport(height=unit(.8, "npc"), width=unit(.8, "npc"), 
+                           just=c("left","bottom"), 
+                           y=-0.02, x=-0.2)
+
+print(plot1,vp=vp.BottomLeft)
+
+@
+
+
+    \end{minipage}
+
+};
+
+\node [myboxwhite, below=2.5cm of unsup] (sup){%
+    \begin{minipage}{0.45\textwidth}
+
+{\bf Differential analysis} Metabolites are compared using Student T-Tests. Correction for multiple testing is performed by independent hypothesis weighting (IWH; Ignatiadis et al., 2016) with variance as a covariate. Differential pathways are identified by enrichment analyses.
+
+\vspace{1cm}
+
+
+<<message=FALSE,warning=FALSE,fig.width=11,fig.height=6,echo=FALSE,fig.align="center",error=FALSE>>=
+layout(matrix(c(1,1,2),1,3))
+library(genefilter)
+library(IHW)
+library(beeswarm)
+df = rowttests(assays(met)[["norm_imputed"]],
+          fac = as.factor(colData(met)$tumor_normal))
+df_ihw = as.data.frame(ihw(df$p.value,apply(assays(met)[["norm_imputed"]],1,var),alpha = 0.05))
+plot(df$dm, -1*log10(df_ihw$adj_pvalue),bty="n",pch=20,
+     xlab="log2 fold-change",ylab="adjusted -log10 p-value")
+abline(h=-log10(0.05),lty=2)
+abline(v=log2(1.5),lty=2)
+abline(v=-log2(1.5),lty=2)
+Tsig = df$dm<(-log2(1.5))&df_ihw$adj_pvalue<0.05
+points(x = df$dm[Tsig],y=-1*log10(df_ihw$adj_pvalue)[Tsig],col="darkseagreen",pch=20)
+Nsig = df$dm>(log2(1.5))&df_ihw$adj_pvalue<0.05
+points(x = df$dm[Nsig],y=-1*log10(df_ihw$adj_pvalue)[Nsig],col="dodgerblue",pch=20)
+points(x=c(-1.201373621,max(df$dm)),y=c(2.696225,2.696225),type="l",col="brown")
+text(x=-1.151373621,y=2.8,labels = "guanosine",cex = 0.7)
+
+df = data.frame(value=assays(met)[["norm"]][134,],
+                tumor_normal=colData(met)$tumor_normal)
+boxplot(df$value~df$tumor_normal,
+        frame=FALSE,ylab="normalized abundance of guanosine",
+        col=c("darkseagreen","dodgerblue"))
+box("plot",col="brown")
+@
+
+
+    \end{minipage}
+
+};
+
+\node [myboxblue, below=2.5cm of sup] (todo){%
+    \begin{minipage}{0.45\textwidth}
+
+{\bf To do} 
+\begin{itemize}
+\item Implementation of HotNet2 algorithm to identify significantly altered subpathways (Pleiserson et. al, 2014)
+\item Hive plot of metabolic network (Krzywinski et al., 2012)
+\end{itemize}
 
   \end{minipage}
 
 };
 
+\node [myboxwhite, below=2.5cm of todo] (references){%
+    \begin{minipage}{0.45\textwidth}
 
-
-
-%\node [myboxwhite, left of=ropengov, node distance=45cm, yshift=50cm] (flowchart){%
-%\begin{minipage}{0.5\textwidth}
-
-\normalsize
-
-    % Place nodes
-    \node [greenbox, right of=intro, node distance=26cm, yshift=0cm] (init) {Raw Data 1};
-    \node [greenbox, below of=init, node distance=4cm] (init2) {Raw Data 2};
-    \node [greenbox, below of=init2, node distance=4cm] (init3) {Raw Data 3};
-    \node [block, right of=init2, node distance=7cm] (tidydata) {Tidy\\Data};
-    \node [block, right of=tidydata, node distance=7cm] (summaries) {Statistical\\Summaries};
-    \node [cloud, above of=tidydata, node distance=7cm] (preprocess) {Preprocessing};
-        \node [block, right of=summaries, node distance=7cm] (figs) {Tables \&\\Figures};
-    \node [cloud, above of=summaries, node distance=6cm] (analysis) {Analysis};
-    \node [greenbox, right of=figs, node distance=7cm] (reporting) {Online Report\\(Github)};
-    \node [cloud, above of=figs, node distance=5cm] (visualization) {Visualization};
-    \node [cloud, above of=reporting, node distance=4cm] (reports) {Document Generation};
-
-    % Draw edges
-    \path [line] (init) -- (tidydata);
-    \path [line] (init2) -- (tidydata);
-    \path [line] (init3) -- (tidydata);
-    \path [line] (preprocess) -- (tidydata);
-    \path [line,dashed] (analysis) -- (summaries);
-    \path [line,dashed] (visualization) -- (figs);
-    \path [line,dashed] (reports) -- (reporting);
-
-    %\path [line] (init) |- (tidydata);
-    \path [line] (tidydata) |- (summaries);
-    %\draw [->[width=5cm]] (tidydata) |- (summaries)
-    \path [line] (summaries) |- (figs);
-    \path [line] (figs) |- (reporting);
-    
-\Large
-
-%\end{minipage}
-%};
-
-\node [myboxwhite, below of=ecosystem, node distance=29cm, xshift=10cm] (example){%
-\begin{minipage}{0.69\textwidth}
-  % \section*{Eurostat open data: a reproducible case study}
-  
-  \vspace{150mm}
-  
-  <<lataa_shape, echo=FALSE, cache=TRUE, results="hide", message=FALSE>>=
-  library(eurostat)
-  download.file("http://ec.europa.eu/eurostat/cache/GISCO/geodatafiles/NUTS_2010_60M_SH.zip", destfile="NUTS_2010_60M_SH.zip")
-  unzip("NUTS_2010_60M_SH.zip")
-    df <- get_eurostat("tgs00026", time_format = "raw") 
-@
-
-  
-  %\begin{figure}[h!]
-  <<page4-1, eval=TRUE, dev='pdf', fig.height=22, fig.width=22, cache=FALSE, message=FALSE, warning=FALSE, echo=FALSE>>=
-  invisible(lapply(c("eurostat","tidyr","rgdal","maptools","rgeos","ggplot2","scales","grid"), require, character.only=T))
-  df$time <- eurotime2num(df$time)
-  df <- df[df$time == max(df$time),]
-  map <- readOGR(dsn = "./NUTS_2010_60M_SH/Data", layer = "NUTS_RG_60M_2010", verbose = FALSE)
-  map_nuts2 <- subset(map, STAT_LEVL_ == 2)
-  NUTS_ID <- as.character(map_nuts2$NUTS_ID)
-  VarX <- rep(NA, 316)
-  dat <- data.frame(NUTS_ID,VarX)
-  dat2 <- merge(dat,df,by.x="NUTS_ID",by.y="geo", all.x=TRUE)
-  row.names(dat2) <- dat2$NUTS_ID
-  row.names(map_nuts2) <- as.character(map_nuts2$NUTS_ID)
-  dat2 <- dat2[order(row.names(dat2)), ]
-  map_nuts2 <- map_nuts2[order(row.names(map_nuts2)), ]
-  dat2$NUTS_ID <- NULL
-  shape <- spCbind(map_nuts2, dat2)
-  shape$id <- rownames(shape@data)
-  map.points <- fortify(shape, region = "id")
-  map.df <- merge(map.points, shape, by = "id")
-  map.df$unit <- as.character(map.df$unit)
-  p <- ggplot(data=map.df, aes(long,lat,group=group))
-  p <- p + geom_polygon(aes(fill = values), color= alpha("white", 1/2),  size=.2)
-  p <- p + coord_map(project="orthographic", xlim=c(-10,45), ylim=c(25,90))
-  p <- p +  theme(legend.position = c(0.06,0.42), legend.justification=c(0,0), legend.key.size=unit(20,'mm'),
-                          legend.background=element_rect(colour=NA, fill=alpha("white", 2/3)),
-                          legend.text=element_text(size=30), legend.title=element_text(size=30), title=element_text(size=30), 
-                          panel.background = element_blank(), plot.background = element_blank(), panel.grid = element_blank(),
-                          axis.text = element_blank(), axis.title = element_blank(), axis.ticks = element_blank(), 
-                          plot.margin = unit(c(-3,-1.5, -3, -1.5), "cm"))
-  p + guides(fill = guide_legend(title = "Euro per Year", title.position = "top", title.hjust=0))
-  @
-
-\end{minipage}
-};
-
-
-\node [myboxwhite, below of=example, node distance=41cm, yshift = 0cm, xshift=-7cm] (examplecaption){%
-\begin{minipage}{0.5\textwidth}
-The automatically generated map above shows \textit{disposable incomes of private households at NUTS2 level regions in European Union in 2011}. This poster, including the Eurostat analysis example above, is fully reproducible; for the full source code of this poster, see \textcolor{blue}{\url{https://github.com/ropengov/poster}}
-\end{minipage}
-};
-
-\large
-
-\node [myboxwhite, right of=ecosystem, node distance=40cm, yshift = -19cm] (ropengov){%
-\begin{minipage}{0.48\textwidth}
-{\bf Reproducible research workflow} R is a popular statistical programming language with a versatile open source ecosystem that enables a completely automated analysis from raw data to the final reports. We create dedicated tools to support reproducible research in computational social science and digital humanities, helping to automatize many standard data analysis tasks in these fields. Raw data sets are downloaded from original sources, preprocessed, integrated with other information, analysed and visualized. The results are reported in web-based documents via automated document generation. The complete workflow, including full access to every detail, is shared publicly in distributed version control (Github). The full source code of this poster is available at \textcolor{blue}{https://github.com/rOpenGov/poster}.
-
-\Large
-
-\vspace{20mm}
-
-{\bf rOpenGov} (rOpenGov core team, 2013) is an open source ecosystem
-and a developer community dedicated to open data analytics for
-computational social science and digital humanities. The main
-components include:
-
-\begin{itemize}
-
-\item {\bf Reproducible research blog} at
-\textcolor{blue}{http://ropengov.github.io} highlights the
-opportunities of open data analytics.
-
-\item {\bf Online tutorials} demonstrate how to access open data
-streams from the original sources and carry out specific analysis
-tasks.
-
-\item {\bf R packages} are used to share computational algorithms to
-support reproducible data analysis. We provide tools for open data in
-various countries (Finland, Poland, Russia, USA), cities (Helsinki),
-and organizations (Eurostat, PX-Web, QOG), data anonymization,
-geographic information (OpenStreetMap, WFS), weather, demography,
-bibliograpies, media APIs, political science, elections and
-parliamentary monitoring. We are thankful for a number of
-developers. For a full list, see
-\textcolor{blue}{http://ropengov.github.io/projects}
-
-\end{itemize}
-
-\small 
-
-\vspace{50mm}
-
-<<eval=FALSE, echo=TRUE>>=
-# Load R packages
-library("eurostat")
-
-# Read data
-map <- readOGR("NUTS_2010_60M_SH/Data") 
-...
-
-# Draw image
-p <- ggplot(data=map, aes(long,lat,group=group))
-p <- p + geom_polygon(aes(fill = values), color= alpha("white", 1/2),  size=.2)
-...
-
-# Print the map
-print(p)
-@
-
-
-\normalsize
-
-\end{minipage}
-};
-
-
-\node [myboxwhite, below of=ropengov, node distance=49cm, xshift=3cm] (references){%
-    \begin{minipage}{0.42\textwidth}
-
-    \normalsize{
+    \small{
     \section*{References}
 
     \begin{enumerate}
-      \item J. Ioannidis (2014). How to Make More Published Research True? PLoS Medicine 11(10): e1001747.      
-      \item D. Lazer et al. (2009). Computational Social Science 323, 721–723
-      \item A. Morin et al. (2012). Research priorities. Shining light into black boxes. Science 336, 159-160.
-      \item rOpenGov core team (2013). R ecosystem for open government data and computational social science. NIPS Machine Learning Open Source Software workshop (MLOSS). December 2013, Lake Tahoe, Nevada, US
-
+      \item Armitage, EG et al. (2015). Missing value imputation strategies for metabolomics data. Electrophoresis, 36(24), 3050–3060.
+    \item Huber, W et al. (2002). Variance stabilization applied to microarray data calibration and to the quantification of differential expression. Bioinformatics, 18 Suppl 1, S96–104.
+    \item Ignatiadis, N et al. (2016). Data-driven hypothesis weighting increases detection power in genome-scale multiple testing. Nature Methods, 13(7), 577–580. 
+    \item Kohl, SM et al. (2012). State-of-the art data normalization methods improve NMR-based metabolomic analysis. Metabolomics, 8(Suppl 1), 146–160. 
+    \item Krzywinski, M et al. (2012). Hive plots--rational approach to visualizing networks. Briefings in Bioinformatics, 13(5), 627–644.
+    \item PLeiserson, MDM et al. (2014). Pan-cancer network analysis identifies combinations of rare somatic mutations across pathways and protein complexes. Nature Genetics, 47(2), 106–114.
+    \item Sig, M (2017). MultiAssayExperiment: Software for the integration of multi-omics experiments in Bioconductor. R package version 1.2.1
     \end{enumerate}
 }
     \end{minipage}
